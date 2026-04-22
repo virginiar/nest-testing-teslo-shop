@@ -49,8 +49,8 @@ export class AuthController {
     @RawHeaders() rawHeaders: string[],
     @Headers() headers: IncomingHttpHeaders,
   ) {
-    console.log(request.user);
-    console.log(user);
+    // console.log(request.user);
+    // console.log(user);
     return {
       ok: true,
       message: 'Hola mundo privado',
