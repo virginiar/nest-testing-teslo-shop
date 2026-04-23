@@ -5,7 +5,10 @@ import { User } from './entities/user.entity';
 import { JwtService } from '@nestjs/jwt';
 import { Repository } from 'typeorm';
 import { CreateUserDto } from './dto';
-import { BadRequestException } from '@nestjs/common';
+import {
+  BadRequestException,
+  InternalServerErrorException,
+} from '@nestjs/common';
 
 describe('AuthService', () => {
   let authService: AuthService;
@@ -93,5 +96,30 @@ describe('AuthService', () => {
     await expect(authService.createUser(dto)).rejects.toThrow(
       'Email already exists',
     );
+  });
+
+  it('should throw an internal server error', async () => {
+    const dto = {
+      email: 'test@google.com',
+    } as CreateUserDto;
+
+    jest.spyOn(console, 'log').mockImplementation(() => {});
+
+    jest
+      .spyOn(userRepository, 'save')
+      .mockRejectedValue({ code: '9999', detail: 'Unhandled error' });
+
+    await expect(authService.createUser(dto)).rejects.toThrow(
+      InternalServerErrorException,
+    );
+    await expect(authService.createUser(dto)).rejects.toThrow(
+      'Please check server logs',
+    );
+
+    expect(console.log).toHaveBeenCalledTimes(2);
+    /* expect(console.log).toHaveBeenCalledWith({
+      code: '9999',
+      detail: 'Unhandled error',
+    }); */
   });
 });
