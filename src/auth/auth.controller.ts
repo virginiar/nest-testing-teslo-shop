@@ -75,6 +75,7 @@ export class AuthController {
   @Get('private3')
   @Auth(ValidRoles.admin)
   privateRoute3(@GetUser() user: User) {
+    delete (user as { password?: string }).password;
     return {
       ok: true,
       user,
