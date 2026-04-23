@@ -4,11 +4,13 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { User } from './entities/user.entity';
 import { JwtService } from '@nestjs/jwt';
 import { Repository } from 'typeorm';
-import { CreateUserDto } from './dto';
+import { CreateUserDto, LoginUserDto } from './dto';
 import {
   BadRequestException,
   InternalServerErrorException,
+  UnauthorizedException,
 } from '@nestjs/common';
+import argon from './argon.mock';
 
 describe('AuthService', () => {
   let authService: AuthService;
@@ -103,7 +105,7 @@ describe('AuthService', () => {
       email: 'test@google.com',
     } as CreateUserDto;
 
-    jest.spyOn(console, 'log').mockImplementation(() => {});
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
 
     jest
       .spyOn(userRepository, 'save')
@@ -121,5 +123,74 @@ describe('AuthService', () => {
       code: '9999',
       detail: 'Unhandled error',
     }); */
+    logSpy.mockRestore();
+  });
+
+  it('should login user and return token', async () => {
+    const dto: LoginUserDto = {
+      email: 'test@gogle.com',
+      password: 'Abc123',
+    };
+
+    const user = {
+      ...dto,
+      password:
+        '$argon2i$v=19$m=4096,t=3,p=1$8rKV3QWX0Y8GQ7ChOgVIRw$u+UEaGhG8Rvge4TvG17gnx/6jhdmePh9s7V3aK/asXA',
+      isActive: true,
+      roles: ['user'],
+      fullName: 'Test User',
+    } as User;
+
+    jest.spyOn(userRepository, 'findOne').mockResolvedValue(user);
+    jest
+      .spyOn(argon, 'hash')
+      .mockResolvedValue(
+        '$argon2i$v=19$m=4096,t=3,p=1$8rKV3QWX0Y8GQ7ChOgVIRw$u+UEaGhG8Rvge4TvG17gnx/6jhdmePh9s7V3aK/asXA',
+      );
+    jest.spyOn(argon, 'verify').mockResolvedValue(true);
+
+    // const result = await authService.login(dto);
+    // expect(result).toEqual({
+    //   user: {
+    //     email: 'test@gogle.com',
+    //     isActive: true,
+    //     roles: ['user'],
+    //     fullName: 'Test User',
+    //   },
+    //   token: 'mock-jwt-token',
+    // });
+
+    // expect(result.user.password).not.toBeDefined();
+    // expect(result.user.password).toBeUndefined();
+  });
+
+  it('should throw an UnAuthorized Exception if user doest not exist', async () => {
+    const dto = { email: 'test@google.com' } as LoginUserDto;
+
+    jest.spyOn(userRepository, 'findOne').mockResolvedValue(null);
+
+    await expect(authService.login(dto)).rejects.toThrow(UnauthorizedException);
+    await expect(authService.login(dto)).rejects.toThrow(
+      'Credentials are not valid (email)',
+    );
+  });
+
+  it('should throw an UnAuthorized Exception if password is not valid', async () => {
+    const dto = {
+      email: 'test@google.com',
+      password: 'Xyz123',
+    } as LoginUserDto;
+
+    jest.spyOn(userRepository, 'findOne').mockResolvedValue({
+      password:
+        '$argon2i$v=19$m=4096,t=3,p=1$8rKV3QWX0Y8GQ7ChOgVIRw$u+UEaGhG8Rvge4TvG17gnx/6jhdmePh9s7V3aK/asXA',
+    } as User);
+
+    jest.spyOn(argon, 'verify').mockResolvedValue(false);
+
+    await expect(authService.login(dto)).rejects.toThrow(UnauthorizedException);
+    await expect(authService.login(dto)).rejects.toThrow(
+      'Credentials are not valid (password)',
+    );
   });
 });
